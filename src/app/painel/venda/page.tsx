@@ -11,17 +11,19 @@ import { SaleForm } from "./sale-form";
 export const metadata = { title: "Venda avulsa" };
 
 export default async function SalePage() {
-  await requireUser(STAFF);
+  const user = await requireUser(STAFF);
+  const isAdmin = user.role === "ADMIN";
   const [cash, products, debtors, recent] = await Promise.all([
     getOpenCashSession(),
     db.product.findMany({ where: { active: true }, orderBy: [{ category: "asc" }, { name: "asc" }] }),
     getDebtorOptions(),
-    db.sale.findMany({
+    // Funcionários não veem o total vendido no dia
+    isAdmin ? db.sale.findMany({
       where: { createdAt: { gte: startOfLocalDay(new Date()) } },
       include: { items: { include: { product: true } }, createdBy: true },
       orderBy: { createdAt: "desc" },
       take: 15,
-    }),
+    }) : [],
   ]);
 
   return (

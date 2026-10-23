@@ -6,7 +6,7 @@ import { formatMoney } from "@/lib/money";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { PageHeader, Stat } from "@/components/ui";
 import { SuiteGrid, type SuiteCard } from "./suite-grid";
-import { BedDouble, CircleDollarSign, Clock, Sparkles } from "lucide-react";
+import { BedDouble, CircleDollarSign, Clock, ConciergeBell, Sparkles } from "lucide-react";
 
 export const metadata = { title: "Mapa de suítes" };
 
@@ -16,7 +16,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const now = new Date();
   const today = startOfLocalDay(now);
 
-  const [suites, tolerance, todayRevenue, todayStays, upcoming] = await Promise.all([
+  const [suites, tolerance, todayRevenue, todayStays, upcoming, openOrders] = await Promise.all([
     db.suite.findMany({
       where: { active: true },
       orderBy: [{ category: { sortOrder: "asc" } }, { number: "asc" }],
@@ -36,6 +36,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       },
       orderBy: { scheduledAt: "asc" },
     }),
+    db.roomServiceOrder.count({ where: { status: { in: ["PENDENTE", "PREPARANDO"] } } }),
   ]);
 
   const cards: SuiteCard[] = suites.map((s) => {
@@ -96,7 +97,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             icon={<CircleDollarSign className="size-4" />}
           />
         ) : (
-          <Stat label="Locações hoje" value={todayStays} icon={<CircleDollarSign className="size-4" />} />
+          <Stat label="Pedidos na cozinha" value={openOrders} hint="novos ou em preparo" icon={<ConciergeBell className="size-4" />} />
         )}
       </div>
       <SuiteGrid

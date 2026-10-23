@@ -132,6 +132,9 @@ model User {
   active       Boolean   @default(true)
   createdAt    DateTime  @default(now())
   lastSeenAt   DateTime?
+  // Proteção contra tentativas de senha
+  failedLogins Int       @default(0)
+  lockedUntil  DateTime?
 
   staysOpened    Stay[]              @relation("StayOpenedBy")
   staysClosed    Stay[]              @relation("StayClosedBy")

@@ -29,7 +29,8 @@ export async function saveUserAction(_: ActionState, form: FormData): Promise<Ac
     const dup = await db.user.findFirst({ where: { email: data.email, NOT: { id } } });
     if (dup) throw new BusinessError("E-mail já cadastrado.");
     const passwordHash = password ? await bcrypt.hash(password, 10) : undefined;
-    if (id) await db.user.update({ where: { id }, data: { ...data, ...(passwordHash && { passwordHash }) } });
+    // Salvar pelo administrador também desbloqueia a conta
+    if (id) await db.user.update({ where: { id }, data: { ...data, ...(passwordHash && { passwordHash }), failedLogins: 0, lockedUntil: null } });
     else await db.user.create({ data: { ...data, passwordHash: passwordHash! } });
     await audit(me.id, `${id ? "Usuário alterado" : "Usuário criado"}: ${data.name} (${data.role}) por ${me.name}`, true);
     return "Usuário salvo.";

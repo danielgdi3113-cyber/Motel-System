@@ -22,7 +22,11 @@ export default async function TeamPage() {
   const online = (d: Date | null) => !!d && Date.now() - d.getTime() < 5 * 60_000;
   return (
     <div className="mx-auto max-w-5xl">
-      <PageHeader title="Funcionários" subtitle="Cada funcionário entra com o próprio e-mail e senha." actions={<UserForm />} />
+      <PageHeader
+        title="Funcionários"
+        subtitle="Cada funcionário entra com o próprio e-mail e senha. Após 5 senhas erradas a conta fica bloqueada por 15 min — editar e salvar desbloqueia."
+        actions={<UserForm />}
+      />
       <div className="mb-6 grid gap-3 md:grid-cols-3">
         {roleInfo.map((r) => (
           <Card key={r.role} className="p-4">
@@ -42,6 +46,11 @@ export default async function TeamPage() {
             <Td>
               <Badge className="bg-surface-2 text-zinc-300">{roleLabel[u.role]}</Badge>
               {!u.active && <Badge className="ml-1 bg-zinc-500/20 text-zinc-400">inativo</Badge>}
+              {u.lockedUntil && u.lockedUntil > new Date() && (
+                <Badge className="ml-1 bg-rose-500/15 text-rose-300" title="Edite e salve para desbloquear">
+                  bloqueado até {formatDateTime(u.lockedUntil).slice(-5)}
+                </Badge>
+              )}
             </Td>
             <Td className="text-muted">{u.lastSeenAt ? formatDateTime(u.lastSeenAt) : "—"}</Td>
             <Td className="text-right">

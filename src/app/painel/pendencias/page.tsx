@@ -33,7 +33,7 @@ export default async function PendingPage({ searchParams }: { searchParams: Prom
         subtitle="Contas que ficaram para pagar depois (pendura), de check-outs, vendas ou lançadas aqui."
         actions={<NewPending debtors={debtors} />}
       />
-      {!history && (
+      {!history && user.role === "ADMIN" && (
         <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-3">
           <Stat label="Total a receber" value={formatMoney(totalOpen)} />
           <Stat label="Pendências abertas" value={open.length} />
