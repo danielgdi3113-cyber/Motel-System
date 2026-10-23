@@ -6,24 +6,53 @@ Sistema web completo para gestão de motéis: mapa de suítes em tempo real, che
 
 ## Módulos
 
+O menu segue as mesmas seções de sistemas de motel tradicionais (Operação, Caixa, Relatórios, Estoque, Clientes, Colaboradores).
+
+### Operação
 | Módulo | O que faz |
 | --- | --- |
-| **Mapa de suítes** (`/painel`) | Painel em tempo real com status de cada suíte (livre, ocupada, limpeza, manutenção, reservada), cronômetro, valor parcial, placa e alerta de hora extra. Atualiza sozinho a cada 15 s, então vários terminais ficam sincronizados. |
-| **Locação** (`/painel/locacoes/:id`) | Check-in por período ou pernoite, lançamento de consumo, desconto, pagamento dividido (Pix, débito, crédito, dinheiro) com cálculo de troco, e cancelamento (só admin). |
-| **Produtos e estoque** (`/painel/produtos`) | Cadastro com preço/custo/margem, entrada e ajuste de estoque, alerta de estoque mínimo e histórico de movimentações. Venda baixa o estoque automaticamente; remover item estorna. |
-| **Caixa** (`/painel/caixa`) | Abertura com fundo de troco, sangria/suprimento, totais por forma de pagamento, fechamento com conferência (esperado × contado) e histórico. O check-out exige caixa aberto. |
-| **Reservas** (`/painel/reservas`) | Reservas do site (pendentes) e da recepção (WhatsApp/telefone/balcão), confirmação com mensagem pronta para WhatsApp, check-in direto da reserva, controle de não comparecimento. |
-| **Limpeza** (`/painel/limpeza`) | Fila automática gerada no check-out, iniciar/concluir com tempo de limpeza, envio para manutenção. Tela pensada para o celular da camareira. |
-| **Relatórios** (`/painel/relatorios`) | Faturamento por dia, ticket médio, taxa de ocupação, entradas por horário, receita por categoria e forma de pagamento, produtos mais vendidos e lucro bruto. |
-| **Suítes e preços** (`/painel/suites`) | Categorias com preço do período, hora extra e pernoite (horários configuráveis), comodidades e suítes. |
-| **Configurações** (`/painel/configuracoes`) | Dados do motel, WhatsApp, tolerância de hora extra e usuários da equipe. |
-| **Site público** (`/`, `/reservar`) | Vitrine das suítes com preços e disponibilidade em tempo real, e reserva online sem cadastro (com código e confirmação pelo WhatsApp). |
+| **Recepção (mapa)** | Status de cada suíte em tempo real (livre, ocupada, limpeza, manutenção, reservada), cronômetro, valor parcial, placa e alerta de hora extra. Atualiza a cada 15 s. |
+| **Locação** | Check-in por período ou pernoite, consumo, desconto, pagamento dividido com troco, **pendura** (deixar o restante pendente para um cliente) e cancelamento (só admin). Placas bloqueadas não entram. |
+| **Painel de reservas** | Reservas do site e da recepção, confirmação por WhatsApp, check-in direto da reserva. |
+| **Venda avulsa** | Venda sem suíte (balcão, portaria, delivery) com carrinho, desconto, pagamento dividido e pendura. |
+| **Lista de espera** | Fila de clientes aguardando suíte, com tempo de espera e aviso quando a categoria desejada vaga. |
+| **Serviços de quarto** | Quadro da cozinha/copa: pedidos novos → preparando → entregues. Pedido cancelado estorna conta e estoque. |
+| **Limpeza** | Fila automática do check-out; a camareira pode mandar a suíte para manutenção, o que abre um chamado. |
+| **Manutenções** | Chamados com prioridade, suíte/equipamento, custo e solução; pode bloquear e liberar a suíte. |
+| **Pendências** | Contas a receber (pendura), com vencimento e recebimento parcial. |
+| **Equipamentos** | Patrimônio por suíte (TV, ar, frigobar...) com situação e chamados abertos. |
+
+### Caixa e relatórios
+| Módulo | O que faz |
+| --- | --- |
+| **Caixa / turno** | Abertura, sangria, suprimento e fechamento. Funcionários fazem **fechamento cego** (não veem o valor esperado nem o faturamento). |
+| **Pag. de fornecedores / Adiantamento salarial** | Despesas do caixa; só as pagas em dinheiro saem da gaveta. |
+| **Dashboard** | Faturamento, despesas, ticket e tempo médio, RevPAR, margem, situação das suítes, movimento do turno por usuário, resultados 24h/7d/30d e por turno, histórico de 12 meses, dia da semana, andamento do mês/ano com projeção, usuários online e últimas ações. |
+| **Relatório de faturamento / Movimentos do caixa** | Faturamento por dia, horário, categoria e produto; todas as entradas e saídas de um período. |
+
+### Estoque, clientes e equipe
+| Módulo | O que faz |
+| --- | --- |
+| **Mercadorias / Entrada rápida** | Cadastro com custo e margem, alerta de mínimo; entrada de uma nota inteira de uma vez. |
+| **Cardápio** | Escolhe o que aparece no cardápio digital público (`/cardapio`, para QR Code na suíte). |
+| **Veículos / Pessoas / Empresas** | Placas registradas no check-in com histórico de visitas e bloqueio; clientes e fornecedores. |
+| **Funcionários** | Cada funcionário com o próprio login e perfil. |
+| **Comunicação interna** | Recados para toda a equipe ou para uma pessoa, com aviso de não lidas. |
+| **Trocar minha senha** | Cada usuário troca a própria senha. |
 
 ### Perfis de acesso
 
-- **Administrador:** tudo.
-- **Recepção:** mapa, locações, reservas, caixa, produtos (entrada de estoque) e limpeza.
-- **Camareira:** só a fila de limpeza.
+As regras ficam em `src/lib/permissions.ts` e são aplicadas no menu, no middleware (bloqueia a URL digitada direto) e em cada página/ação.
+
+| | Administrador | Recepção | Camareira |
+| --- | :-: | :-: | :-: |
+| Mapa, locações, reservas, venda avulsa, espera, serviços, pendências, equipamentos | ✅ | ✅ | — |
+| Limpeza, manutenções, comunicação interna, trocar senha | ✅ | ✅ | ✅ |
+| Caixa (abrir, sangria, suprimento, fechar) | ✅ | ✅ cego | — |
+| Faturamento do caixa, dashboard, relatórios | ✅ | — | — |
+| Fornecedores, adiantamentos | ✅ | — | — |
+| Custo e margem dos produtos, cardápio | ✅ | — | — |
+| Funcionários, suítes e preços, configurações | ✅ | — | — |
 
 ## Regras de cobrança
 

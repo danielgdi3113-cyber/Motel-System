@@ -15,12 +15,17 @@ export function AutoRefresh({ seconds = 15 }: { seconds?: number }) {
   return null;
 }
 
-/** Relógio para cronômetros na tela. */
-export function useNow(intervalMs = 1000) {
-  const [now, setNow] = useState(() => Date.now());
+/**
+ * Relógio para cronômetros na tela. Até a página montar no navegador devolve
+ * `fallback` (um horário fixo vindo dos dados), para o HTML do servidor e o do
+ * navegador serem idênticos; depois passa a contar a cada segundo.
+ */
+export function useNow(fallback: number, intervalMs = 1000) {
+  const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
+    setNow(Date.now());
     const id = setInterval(() => setNow(Date.now()), intervalMs);
     return () => clearInterval(id);
   }, [intervalMs]);
-  return now;
+  return now ?? fallback;
 }

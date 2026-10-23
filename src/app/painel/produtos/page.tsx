@@ -41,7 +41,7 @@ export default async function ProductsPage() {
           </div>
         </div>
       )}
-      <Table head={["Produto", "Categoria", "Preço", "Custo", "Margem", "Estoque", ""]}>
+      <Table head={isAdmin ? ["Produto", "Categoria", "Preço", "Custo", "Margem", "Estoque", ""] : ["Produto", "Categoria", "Preço", "Estoque"]}>
         {products.map((p) => {
           const margin = p.price > 0 && p.cost > 0 ? Math.round(((p.price - p.cost) / p.price) * 100) : null;
           return (
@@ -51,20 +51,20 @@ export default async function ProductsPage() {
               </Td>
               <Td className="text-muted">{p.category}</Td>
               <Td>{formatMoney(p.price)}</Td>
-              <Td className="text-muted">{p.cost ? formatMoney(p.cost) : "—"}</Td>
-              <Td className="text-muted">{margin !== null ? `${margin}%` : "—"}</Td>
+              {isAdmin && <Td className="text-muted">{p.cost ? formatMoney(p.cost) : "—"}</Td>}
+              {isAdmin && <Td className="text-muted">{margin !== null ? `${margin}%` : "—"}</Td>}
               <Td>
                 <span className={p.stock <= p.minStock ? "font-semibold text-amber-300" : ""}>{p.stock}</span>
                 <span className="text-xs text-muted"> / mín. {p.minStock}</span>
               </Td>
-              <Td className="text-right">
-                {isAdmin && (
+              {isAdmin && <Td className="text-right">
+                {(
                   <ProductForm
                     categories={categories}
                     product={{ id: p.id, name: p.name, category: p.category, price: p.price, cost: p.cost, minStock: p.minStock, active: p.active }}
                   />
                 )}
-              </Td>
+              </Td>}
             </tr>
           );
         })}

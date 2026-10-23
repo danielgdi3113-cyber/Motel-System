@@ -82,3 +82,14 @@ export function formatDuration(ms: number): string {
   const s = total % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
+
+/** Primeiro dia do mês local (00:00), com deslocamento opcional de meses. */
+export function startOfLocalMonth(date: Date, monthOffset = 0, tz = TIMEZONE): Date {
+  const p = zonedParts(date, tz);
+  return fromZoned(p.year, p.month + monthOffset, 1, 0, 0, tz);
+}
+
+export function startOfLocalYear(date: Date, yearOffset = 0, tz = TIMEZONE): Date {
+  const p = zonedParts(date, tz);
+  return fromZoned(p.year + yearOffset, 1, 1, 0, 0, tz);
+}

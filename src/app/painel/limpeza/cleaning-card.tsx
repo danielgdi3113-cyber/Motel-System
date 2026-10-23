@@ -20,7 +20,7 @@ type Task = {
 };
 
 export function CleaningCard({ task }: { task: Task }) {
-  const now = useNow();
+  const now = useNow(new Date(task.startedAt ?? task.createdAt).getTime());
   const waiting = now - new Date(task.createdAt).getTime();
   const inProgress = task.status === "EM_ANDAMENTO";
   const late = !inProgress && waiting > 15 * 60_000;

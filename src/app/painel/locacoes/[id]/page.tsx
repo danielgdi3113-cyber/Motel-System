@@ -5,6 +5,7 @@ import { requireUser, STAFF } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getOpenCashSession } from "@/lib/cash";
 import { getTolerance } from "@/lib/settings";
+import { getDebtorOptions } from "@/lib/debtors";
 import { modeLabel, paymentLabel } from "@/lib/labels";
 import { formatMoney } from "@/lib/money";
 import { formatDateTime, formatDuration } from "@/lib/time";
@@ -31,10 +32,11 @@ export default async function StayPage({ params }: { params: Promise<{ id: strin
   if (!stay) notFound();
 
   const open = stay.status === "ABERTA";
-  const [tolerance, products, cash] = await Promise.all([
+  const [tolerance, products, cash, debtors] = await Promise.all([
     getTolerance(),
     open ? db.product.findMany({ where: { active: true }, orderBy: [{ category: "asc" }, { name: "asc" }] }) : [],
     open ? getOpenCashSession() : null,
+    open ? getDebtorOptions() : [],
   ]);
   const consumption = stay.consumptions.reduce((s, c) => s + c.quantity * c.unitPrice, 0);
   const pricing = {
@@ -133,7 +135,7 @@ export default async function StayPage({ params }: { params: Promise<{ id: strin
         <aside className="space-y-4">
           {open ? (
             <>
-              <Checkout stayId={stay.id} pricing={pricing} tolerance={tolerance} consumption={consumption} cashOpen={!!cash} />
+              <Checkout stayId={stay.id} pricing={pricing} tolerance={tolerance} consumption={consumption} cashOpen={!!cash} debtors={debtors} />
               {user.role === "ADMIN" && <CancelStay stayId={stay.id} />}
             </>
           ) : (

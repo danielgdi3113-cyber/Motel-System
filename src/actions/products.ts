@@ -69,3 +69,41 @@ export async function stockMovementAction(_: ActionState, form: FormData): Promi
   revalidatePath("/painel/produtos");
   return res;
 }
+
+export async function menuItemAction(_: ActionState, form: FormData): Promise<ActionState> {
+  await requireUser(ADMIN);
+  const res = await run(async () => {
+    const id = String(form.get("id"));
+    const description = String(form.get("description") ?? "").trim().slice(0, 300);
+    await db.product.update({ where: { id }, data: { description, showOnMenu: form.get("showOnMenu") === "on" } });
+    return "Salvo.";
+  });
+  revalidatePath("/painel/cardapio");
+  revalidatePath("/cardapio");
+  return res;
+}
+
+/** Entrada rápida: várias mercadorias de uma vez (ex.: chegada de uma nota fiscal). */
+export async function quickEntryAction(_: ActionState, form: FormData): Promise<ActionState> {
+  const user = await requireUser(STAFF);
+  const res = await run(async () => {
+    const reason = String(form.get("reason") ?? "").trim().slice(0, 200) || "Entrada rápida";
+    const entries = [...form.entries()]
+      .filter(([k]) => k.startsWith("qty_"))
+      .map(([k, v]) => ({ productId: k.slice(4), quantity: Number.parseInt(String(v), 10) }))
+      .filter((e) => Number.isInteger(e.quantity) && e.quantity > 0);
+    if (entries.length === 0) throw new BusinessError("Informe a quantidade de pelo menos um produto.");
+    if (entries.some((e) => e.quantity > 10000)) throw new BusinessError("Quantidade muito alta.");
+    await db.$transaction([
+      ...entries.map((e) => db.product.update({ where: { id: e.productId }, data: { stock: { increment: e.quantity } } })),
+      db.stockMovement.createMany({
+        data: entries.map((e) => ({ ...e, type: "ENTRADA" as const, reason, userId: user.id })),
+      }),
+    ]);
+    const units = entries.reduce((s, e) => s + e.quantity, 0);
+    return `Entrada de ${units} unidade(s) em ${entries.length} produto(s).`;
+  });
+  revalidatePath("/painel/estoque/entrada");
+  revalidatePath("/painel/produtos");
+  return res;
+}

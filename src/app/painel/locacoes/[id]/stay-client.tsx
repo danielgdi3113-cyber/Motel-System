@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { StayMode } from "@prisma/client";
-import { Ban, LogOut, Plus, X } from "lucide-react";
+import { Ban, LogOut, Plus } from "lucide-react";
+import { PaymentSplit, type DebtorOption } from "@/components/payment-split";
 import { addConsumptionAction, cancelStayAction, checkoutAction } from "@/actions/stays";
 import { useNow } from "@/components/auto-refresh";
 import { ActionForm, Submit } from "@/components/form";
 import { Modal } from "@/components/modal";
-import { Button, Card, Input, Select, Textarea, cn } from "@/components/ui";
-import { paymentLabel } from "@/lib/labels";
-import { centsToInput, formatMoney, parseMoney } from "@/lib/money";
+import { Button, Card, Checkbox, Input, Select, Textarea, cn } from "@/components/ui";
+import { formatMoney, parseMoney } from "@/lib/money";
 import { calculateStayPrice } from "@/lib/pricing";
 import { formatDuration, formatTime } from "@/lib/time";
 
@@ -25,12 +25,12 @@ type Pricing = {
 };
 
 function usePrice(pricing: Pricing, tolerance: number) {
-  const now = useNow();
+  const now = useNow(new Date(pricing.checkIn).getTime());
   return { now, price: calculateStayPrice({ ...pricing, checkIn: new Date(pricing.checkIn), toleranceMinutes: tolerance }, new Date(now)) };
 }
 
 export function StayTimer({ checkIn }: { checkIn: string }) {
-  const now = useNow();
+  const now = useNow(new Date(checkIn).getTime());
   return <span className="font-mono">{formatDuration(now - new Date(checkIn).getTime())}</span>;
 }
 
@@ -98,6 +98,10 @@ export function AddConsumption({ stayId, products }: { stayId: string; products:
               </div>
             ))}
           </div>
+          <div className="space-y-2 rounded-xl border border-line p-3">
+            <Checkbox name="asOrder" label="Enviar como pedido para a cozinha / serviço de quarto" />
+            <Input name="orderNotes" placeholder="Observação do pedido (ex.: sem cebola)" />
+          </div>
           <div className="flex items-end gap-3">
             <Input label="Quantidade" name="quantity" type="number" min={1} max={50} defaultValue={1} className="w-28" />
             <Submit disabled={!selected} className="flex-1">
@@ -110,9 +114,7 @@ export function AddConsumption({ stayId, products }: { stayId: string; products:
   );
 }
 
-const METHODS = ["PIX", "DEBITO", "CREDITO", "DINHEIRO"] as const;
-type Method = (typeof METHODS)[number];
-type PaymentLine = { id: number; method: Method; value: string };
+
 
 export function Checkout({
   stayId,
@@ -120,29 +122,19 @@ export function Checkout({
   tolerance,
   consumption,
   cashOpen,
+  debtors,
 }: {
   stayId: string;
   pricing: Pricing;
   tolerance: number;
   consumption: number;
   cashOpen: boolean;
+  debtors: DebtorOption[];
 }) {
   const { price } = usePrice(pricing, tolerance);
   const [discount, setDiscount] = useState("");
-  const [lines, setLines] = useState<PaymentLine[]>([]);
   const subtotal = price.amount + consumption;
   const total = Math.max(0, subtotal - parseMoney(discount));
-  const paid = lines.reduce((sum, l) => sum + parseMoney(l.value), 0);
-  const diff = paid - total;
-  const cashPaid = lines.filter((l) => l.method === "DINHEIRO").reduce((sum, l) => sum + parseMoney(l.value), 0);
-  // Troco só pode sair do dinheiro recebido
-  const invalidChange = diff > 0 && diff > cashPaid;
-
-  // Cada forma de pagamento entra com o valor que ainda falta
-  const addLine = (method: Method) =>
-    setLines([...lines, { id: Math.random(), method, value: centsToInput(Math.max(0, total - paid)) }]);
-  const updateLine = (id: number, value: string) => setLines(lines.map((l) => (l.id === id ? { ...l, value } : l)));
-  const removeLine = (id: number) => setLines(lines.filter((l) => l.id !== id));
 
   return (
     <Card className="space-y-4">
@@ -188,76 +180,7 @@ export function Checkout({
             value={discount}
             onChange={(e) => setDiscount(e.target.value)}
           />
-          {METHODS.map((m) => (
-            <input
-              key={m}
-              type="hidden"
-              name={`pay_${m}`}
-              value={centsToInput(lines.filter((l) => l.method === m).reduce((sum, l) => sum + parseMoney(l.value), 0))}
-            />
-          ))}
-          <div className="space-y-2">
-            <span className="text-sm font-medium text-zinc-300">Pagamento</span>
-            <div className="grid grid-cols-4 gap-1.5">
-              {METHODS.map((m) => (
-                <button
-                  type="button"
-                  key={m}
-                  onClick={() => addLine(m)}
-                  className="flex items-center justify-center gap-1 rounded-lg border border-line py-2 text-xs hover:border-accent hover:text-white"
-                >
-                  <Plus className="size-3" /> {paymentLabel[m]}
-                </button>
-              ))}
-            </div>
-            {lines.length === 0 ? (
-              <p className="text-xs text-muted">
-                Clique na forma de pagamento. Para dividir, ajuste o valor e clique na próxima forma: ela entra com o restante.
-              </p>
-            ) : (
-              lines.map((l) => (
-                <div key={l.id} className="flex items-center gap-2">
-                  <span className="w-20 shrink-0 text-sm">{paymentLabel[l.method]}</span>
-                  <Input
-                    aria-label={`Valor em ${paymentLabel[l.method]}`}
-                    inputMode="decimal"
-                    placeholder="0,00"
-                    value={l.value}
-                    onChange={(e) => updateLine(l.id, e.target.value)}
-                    onFocus={(e) => e.target.select()}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeLine(l.id)}
-                    className="rounded-lg p-2 text-muted hover:bg-surface-2 hover:text-rose-400"
-                    aria-label="Remover pagamento"
-                  >
-                    <X className="size-4" />
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-          <div
-            className={cn(
-              "rounded-xl px-3 py-2 text-sm",
-              invalidChange
-                ? "bg-rose-500/10 text-rose-300"
-                : diff === 0
-                  ? "bg-emerald-500/10 text-emerald-300"
-                  : diff > 0
-                    ? "bg-sky-500/10 text-sky-300"
-                    : "bg-surface-2 text-muted",
-            )}
-          >
-            {diff < 0 && `Faltam ${formatMoney(-diff)}`}
-            {diff === 0 && "Valor confere"}
-            {diff > 0 && !invalidChange && `Troco: ${formatMoney(diff)}`}
-            {invalidChange && `Pago ${formatMoney(diff)} a mais. Troco só é possível em dinheiro — ajuste os valores.`}
-          </div>
-          <Submit className="w-full" size="lg" variant="success" disabled={diff < 0 || invalidChange}>
-            <LogOut className="size-4" /> Fechar conta e liberar
-          </Submit>
+          <PaymentSplit total={total} debtors={debtors} submitLabel="Fechar conta e liberar" submitIcon={<LogOut className="size-4" />} />
           <p className="text-xs text-muted">O valor é recalculado no momento da confirmação.</p>
         </ActionForm>
       )}

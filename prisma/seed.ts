@@ -22,10 +22,22 @@ async function main() {
 
   // Limpa na ordem das dependências
   await db.$transaction([
+    db.auditLog.deleteMany(),
+    db.internalMessage.deleteMany(),
     db.payment.deleteMany(),
+    db.pending.deleteMany(),
+    db.saleItem.deleteMany(),
+    db.sale.deleteMany(),
+    db.maintenanceTicket.deleteMany(),
+    db.equipment.deleteMany(),
+    db.waitlistEntry.deleteMany(),
+    db.vehicle.deleteMany(),
+    db.person.deleteMany(),
+    db.company.deleteMany(),
     db.cashMovement.deleteMany(),
     db.cleaningTask.deleteMany(),
     db.consumption.deleteMany(),
+    db.roomServiceOrder.deleteMany(),
     db.stockMovement.deleteMany(),
     db.stay.deleteMany(),
     db.reservation.deleteMany(),
@@ -125,13 +137,17 @@ async function main() {
   const methods: PaymentMethod[] = ["PIX", "PIX", "PIX", "CREDITO", "CREDITO", "DEBITO", "DINHEIRO"];
   const sellable = products.filter((p) => p.category !== "Serviços");
 
-  for (let d = 30; d >= 1; d--) {
+  const HISTORY_DAYS = 395;
+  for (let d = HISTORY_DAYS; d >= 1; d--) {
     const dayStart = startOfLocalDay(new Date(now - d * 24 * HOUR)).getTime();
     const cash = await db.cashSession.create({
       data: { openedAt: new Date(dayStart + 8 * HOUR), openingAmount: 20000, openedById: recep.id, status: "FECHADO" },
     });
     let cashIn = 0;
-    const staysToday = 14 + Math.floor(rand() * 16);
+    const dow = new Date(dayStart + 12 * HOUR).getUTCDay();
+    const weekend = dow === 0 || dow === 5 || dow === 6 ? 1.35 : 1;
+    const growth = 0.8 + 0.2 * (1 - d / HISTORY_DAYS); // cresce ao longo do ano
+    const staysToday = Math.round((12 + Math.floor(rand() * 10)) * weekend * growth);
     for (let i = 0; i < staysToday; i++) {
       const suite = pick(allSuites);
       // Concentra entradas entre 18h e 3h
@@ -237,6 +253,66 @@ async function main() {
   }
   const s106 = allSuites.find((x) => x.number === "106")!;
   await db.suite.update({ where: { id: s106.id }, data: { status: "MANUTENCAO", notes: "Ar-condicionado com ruído — técnico agendado." } });
+
+  // Clientes, fornecedores e veículos
+  const joao = await db.person.create({ data: { name: "João Pereira", phone: "11955554444", document: "123.456.789-00" } });
+  await db.person.create({ data: { name: "Cliente frequente (M.)", phone: "11944443333", notes: "Prefere a suíte 301" } });
+  const distrib = await db.company.create({ data: { name: "Distribuidora de Bebidas Central", document: "12.345.678/0001-90", contact: "Marcos", phone: "1133334444", isSupplier: true, isCustomer: false } });
+  await db.company.create({ data: { name: "Lavanderia Express", isSupplier: true, isCustomer: false, contact: "Ana" } });
+  await db.company.create({ data: { name: "Eventos XYZ Ltda", document: "98.765.432/0001-10", isCustomer: true } });
+  await db.vehicle.createMany({
+    data: [
+      { plate: "QWE4R21", model: "Onix", color: "Prata", personId: joao.id },
+      { plate: "BRA2E19", model: "Corolla", color: "Preto" },
+      { plate: "XYZ9A99", model: "Gol", color: "Branco", blocked: true, notes: "Danos à suíte 104 em 08/2026" },
+    ],
+  });
+  await db.pending.create({ data: { personId: joao.id, description: "Suíte 201 — check-out", amount: 8500, createdById: recep.id, dueDate: new Date(now + 5 * 24 * HOUR) } });
+
+  // Equipamentos e manutenção
+  for (const s of allSuites) {
+    await db.equipment.createMany({
+      data: [
+        { name: "Smart TV", code: `TV-${s.number}`, suiteId: s.id },
+        { name: "Ar-condicionado", code: `AC-${s.number}`, suiteId: s.id, status: s.number === "106" ? "DEFEITO" : "OK" },
+        { name: "Frigobar", code: `FB-${s.number}`, suiteId: s.id },
+        ...(s.category.name !== "Standard" ? [{ name: "Hidromassagem", code: `HM-${s.number}`, suiteId: s.id }] : []),
+      ],
+    });
+  }
+  const ac106 = await db.equipment.findFirst({ where: { code: "AC-106" } });
+  await db.maintenanceTicket.create({
+    data: { title: "Ar-condicionado com ruído", suiteId: s106.id, equipmentId: ac106?.id, priority: "ALTA", createdById: recep.id, description: "Barulho alto ao ligar. Técnico agendado." },
+  });
+  await db.maintenanceTicket.create({
+    data: { title: "Lâmpada do banheiro queimada", suiteId: allSuites.find((x) => x.number === "203")!.id, priority: "BAIXA", createdById: maid.id },
+  });
+
+  // Despesas do mês
+  await db.cashMovement.create({
+    data: { cashSessionId: openCash.id, type: "PAGAMENTO_FORNECEDOR", amount: 45000, method: "PIX", companyId: distrib.id, description: "Cervejas e refrigerantes", document: "NF 8812", userId: admin.id },
+  });
+
+  // Pedido de serviço de quarto em andamento (suíte 301)
+  const stay301 = await db.stay.findFirst({ where: { status: "ABERTA", suite: { number: "301" } } });
+  if (stay301) {
+    const fries = products.find((p) => p.name.startsWith("Porção de batata"))!;
+    const order = await db.roomServiceOrder.create({ data: { stayId: stay301.id, createdById: recep.id, notes: "Bem crocante" } });
+    await db.consumption.create({ data: { stayId: stay301.id, productId: fries.id, quantity: 1, unitPrice: fries.price, createdById: recep.id, orderId: order.id } });
+  }
+
+  // Lista de espera, recados e ações recentes
+  await db.waitlistEntry.create({ data: { name: "Casal no carro prata", plate: "FGH3J45", categoryId: categories.find((c) => c.name === "Master")!.id, createdAt: new Date(now - 12 * 60_000) } });
+  await db.internalMessage.create({ data: { authorId: admin.id, body: "Lembrete: inventário do frigobar na sexta à noite.", readByIds: [admin.id] } });
+  await db.user.update({ where: { id: recep.id }, data: { lastSeenAt: new Date(now) } });
+  await db.auditLog.createMany({
+    data: [
+      { userId: maid.id, action: "Iniciada a limpeza da suíte 203 por Joana Camareira", createdAt: new Date(now - 18 * 60_000) },
+      { userId: recep.id, action: "Check-in na suíte 202 (placa RIO7A55) por Carla Recepção", createdAt: new Date(now - 20 * 60_000) },
+      { userId: recep.id, action: "Carla Recepção entrou no sistema (IP 192.168.0.12)", createdAt: new Date(now - 6 * HOUR) },
+      { userId: recep.id, action: "Caixa aberto por Carla Recepção com R$ 200,00", createdAt: new Date(now - 6 * HOUR) },
+    ],
+  });
 
   // Reservas futuras
   const luxo = categories.find((c) => c.name === "Luxo")!;

@@ -142,3 +142,30 @@ export function Table({ head, children }: { head: ReactNode[]; children: ReactNo
 export function Td({ className, ...props }: ComponentProps<"td">) {
   return <td className={cn("px-4 py-3 align-middle", className)} {...props} />;
 }
+
+/**
+ * Botão que dispara uma server action com valores fixos. Cada botão tem o seu
+ * próprio formulário com campos ocultos — o valor do botão clicado (submitter)
+ * não chega de forma confiável às server actions.
+ */
+export function ActionButton({
+  action,
+  fields,
+  className,
+  children,
+  ...props
+}: Omit<ComponentProps<"button">, "formAction"> & {
+  action: (form: FormData) => void | Promise<void>;
+  fields: Record<string, string>;
+}) {
+  return (
+    <form action={action} className="contents">
+      {Object.entries(fields).map(([k, v]) => (
+        <input key={k} type="hidden" name={k} value={v} />
+      ))}
+      <button className={className} {...props}>
+        {children}
+      </button>
+    </form>
+  );
+}

@@ -11,7 +11,7 @@ import { BedDouble, CircleDollarSign, Clock, Sparkles } from "lucide-react";
 export const metadata = { title: "Mapa de suítes" };
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ checkout?: string }> }) {
-  await requireUser(STAFF);
+  const user = await requireUser(STAFF);
   const params = await searchParams;
   const now = new Date();
   const today = startOfLocalDay(now);
@@ -88,16 +88,21 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         />
         <Stat label="Livres" value={count("LIVRE")} hint={`${count("RESERVADA")} reservadas`} icon={<Clock className="size-4" />} />
         <Stat label="Em limpeza" value={count("LIMPEZA")} hint={`${count("MANUTENCAO")} em manutenção`} icon={<Sparkles className="size-4" />} />
-        <Stat
-          label="Faturamento hoje"
-          value={formatMoney(todayRevenue._sum.amount ?? 0)}
-          hint={`${todayStays} locações`}
-          icon={<CircleDollarSign className="size-4" />}
-        />
+        {user.role === "ADMIN" ? (
+          <Stat
+            label="Faturamento hoje"
+            value={formatMoney(todayRevenue._sum.amount ?? 0)}
+            hint={`${todayStays} locações`}
+            icon={<CircleDollarSign className="size-4" />}
+          />
+        ) : (
+          <Stat label="Locações hoje" value={todayStays} icon={<CircleDollarSign className="size-4" />} />
+        )}
       </div>
       <SuiteGrid
         suites={cards}
         tolerance={tolerance}
+        serverNow={now.getTime()}
         upcoming={upcoming.map((r) => ({
           id: r.id,
           code: r.code,

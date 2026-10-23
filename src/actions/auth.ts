@@ -1,10 +1,11 @@
 "use server";
 
 import bcrypt from "bcryptjs";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { homeFor, SESSION_COOKIE, SESSION_HOURS, signSession } from "@/lib/session";
+import { audit } from "@/lib/audit";
+import { homeFor, SESSION_COOKIE, SESSION_HOURS, signSession, verifySession } from "@/lib/session";
 import type { ActionState } from "./types";
 
 export async function loginAction(_: ActionState, form: FormData): Promise<ActionState> {
@@ -14,6 +15,10 @@ export async function loginAction(_: ActionState, form: FormData): Promise<Actio
   const valid = user && user.active && (await bcrypt.compare(password, user.passwordHash));
   if (!valid) return { error: "E-mail ou senha incorretos." };
 
+  const h = await headers();
+  const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  await db.user.update({ where: { id: user.id }, data: { lastSeenAt: new Date() } });
+  await audit(user.id, `${user.name} entrou no sistema (IP ${ip})`);
   const token = await signSession({ sub: user.id, name: user.name, role: user.role });
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
@@ -26,6 +31,12 @@ export async function loginAction(_: ActionState, form: FormData): Promise<Actio
 }
 
 export async function logoutAction() {
-  (await cookies()).delete(SESSION_COOKIE);
+  const store = await cookies();
+  const session = await verifySession(store.get(SESSION_COOKIE)?.value);
+  if (session) {
+    await db.user.update({ where: { id: session.sub }, data: { lastSeenAt: null } }).catch(() => {});
+    await audit(session.sub, `${session.name} saiu do sistema`);
+  }
+  store.delete(SESSION_COOKIE);
   redirect("/login");
 }

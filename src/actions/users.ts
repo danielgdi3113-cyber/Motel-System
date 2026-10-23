@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser, ADMIN } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { audit } from "@/lib/audit";
 import { DEFAULT_SETTINGS } from "@/lib/settings";
 import { BusinessError, run, type ActionState } from "./types";
 
@@ -30,9 +31,10 @@ export async function saveUserAction(_: ActionState, form: FormData): Promise<Ac
     const passwordHash = password ? await bcrypt.hash(password, 10) : undefined;
     if (id) await db.user.update({ where: { id }, data: { ...data, ...(passwordHash && { passwordHash }) } });
     else await db.user.create({ data: { ...data, passwordHash: passwordHash! } });
+    await audit(me.id, `${id ? "Usuário alterado" : "Usuário criado"}: ${data.name} (${data.role}) por ${me.name}`, true);
     return "Usuário salvo.";
   });
-  revalidatePath("/painel/configuracoes");
+  revalidatePath("/painel/equipe");
   return res;
 }
 

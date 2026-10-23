@@ -5,8 +5,10 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireUser, STAFF, ADMIN } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { audit } from "@/lib/audit";
 import { getOpenCashSession } from "@/lib/cash";
-import { parseMoney, formatMoney } from "@/lib/money";
+import { formatMoney, parseMoney } from "@/lib/money";
+import { parseDebtor, parsePayments, settlePayments } from "@/lib/payments";
 import { getTolerance } from "@/lib/settings";
 import { stayTotals } from "@/lib/stays";
 import { BusinessError, run, type ActionState } from "./types";
@@ -38,6 +40,8 @@ export async function checkInAction(_: ActionState, form: FormData): Promise<Act
       reservationId: form.get("reservationId") || undefined,
     });
     stayId = await openStay(user.id, data);
+    const st = await db.stay.findUnique({ where: { id: stayId }, include: { suite: true } });
+    await audit(user.id, `Check-in na suíte ${st?.suite.number}${data.plate ? ` (placa ${data.plate})` : ""} por ${user.name}`);
   });
   if (result?.ok) redirect(`/painel/locacoes/${stayId}`);
   return result;
@@ -47,6 +51,14 @@ export async function openStay(userId: string, data: z.infer<typeof checkInSchem
   return db.$transaction(async (tx) => {
     const suite = await tx.suite.findUnique({ where: { id: data.suiteId }, include: { category: true } });
     if (!suite || !suite.active) throw new BusinessError("Suíte não encontrada.");
+
+    // Placa: bloqueia veículos na lista negra e registra os novos no cadastro
+    const plate = data.plate.replace(/[^A-Z0-9]/g, "");
+    if (plate) {
+      const vehicle = await tx.vehicle.findUnique({ where: { plate } });
+      if (vehicle?.blocked) throw new BusinessError(`Veículo ${plate} está bloqueado${vehicle.notes ? `: ${vehicle.notes}` : "."}`);
+      if (!vehicle) await tx.vehicle.create({ data: { plate } });
+    }
 
     // Trava otimista: só ocupa se ainda estiver livre/reservada
     const allowed = data.reservationId ? ["LIVRE", "RESERVADA"] : ["LIVRE"];
@@ -67,7 +79,7 @@ export async function openStay(userId: string, data: z.infer<typeof checkInSchem
       data: {
         suiteId: suite.id,
         mode: data.mode,
-        plate: data.plate,
+        plate,
         guests: data.guests,
         notes: data.notes,
         periodHours: c.periodHours,
@@ -103,16 +115,24 @@ export async function addConsumptionAction(_: ActionState, form: FormData): Prom
       });
       if (dec.count === 0) throw new BusinessError(`Estoque insuficiente de ${product.name} (${product.stock} un.).`);
 
+      // "Enviar para a cozinha" cria um pedido de serviço de quarto
+      const order =
+        form.get("asOrder") === "on"
+          ? await tx.roomServiceOrder.create({
+              data: { stayId, createdById: user.id, notes: String(form.get("orderNotes") ?? "").slice(0, 200) },
+            })
+          : null;
       await tx.consumption.create({
-        data: { stayId, productId, quantity, unitPrice: product.price, createdById: user.id },
+        data: { stayId, productId, quantity, unitPrice: product.price, createdById: user.id, orderId: order?.id },
       });
       await tx.stockMovement.create({
         data: { productId, type: "VENDA", quantity: -quantity, reason: `Locação ${stayId.slice(-6)}`, userId: user.id },
       });
     });
-    return "Item lançado.";
+    return form.get("asOrder") === "on" ? "Pedido enviado para a cozinha." : "Item lançado.";
   });
   revalidatePath(`/painel/locacoes/${stayId}`);
+  revalidatePath("/painel/servicos");
   return res;
 }
 
@@ -137,23 +157,21 @@ export async function removeConsumptionAction(form: FormData) {
   revalidatePath(`/painel/locacoes/${item.stayId}`);
 }
 
-const methods = ["DINHEIRO", "PIX", "DEBITO", "CREDITO"] as const;
-
 export async function checkoutAction(_: ActionState, form: FormData): Promise<ActionState> {
   const user = await requireUser(STAFF);
   const stayId = String(form.get("stayId"));
   const res = await run(async () => {
     const discount = parseMoney(String(form.get("discount") ?? ""));
-    const payments = methods
-      .map((method) => ({ method, amount: parseMoney(String(form.get(`pay_${method}`) ?? "")) }))
-      .filter((p) => p.amount > 0);
+    const payments = parsePayments(form);
+    const debtor = form.get("leavePending") === "on" ? parseDebtor(form.get("debtor")) : null;
+    if (form.get("leavePending") === "on" && !debtor) throw new BusinessError("Escolha quem fica com a pendência.");
     const tolerance = await getTolerance();
 
-    await db.$transaction(async (tx) => {
+    const summary = await db.$transaction(async (tx) => {
       const cash = await getOpenCashSession(tx);
       if (!cash) throw new BusinessError("Abra o caixa antes de fazer o check-out.");
 
-      const stay = await tx.stay.findUnique({ where: { id: stayId }, include: { consumptions: true } });
+      const stay = await tx.stay.findUnique({ where: { id: stayId }, include: { consumptions: true, suite: true } });
       if (!stay || stay.status !== "ABERTA") throw new BusinessError("Locação já encerrada.");
 
       const consumption = stay.consumptions.reduce((s, c) => s + c.quantity * c.unitPrice, 0);
@@ -161,16 +179,7 @@ export async function checkoutAction(_: ActionState, form: FormData): Promise<Ac
       const { room, subtotal } = stayTotals(stay, consumption, tolerance, now);
       if (discount < 0 || discount > subtotal) throw new BusinessError("Desconto inválido.");
       const total = subtotal - discount;
-
-      // Troco: o excedente só é aceito em dinheiro
-      const paid = payments.reduce((s, p) => s + p.amount, 0);
-      const change = paid - total;
-      if (change < 0) throw new BusinessError(`Faltam ${formatMoney(-change)} para fechar a conta.`);
-      const cashPaid = payments.find((p) => p.method === "DINHEIRO")?.amount ?? 0;
-      if (change > cashPaid) throw new BusinessError("Valor pago acima do total. Troco só é possível em dinheiro.");
-      const finalPayments = payments
-        .map((p) => (p.method === "DINHEIRO" ? { ...p, amount: p.amount - change } : p))
-        .filter((p) => p.amount > 0);
+      const { final, pendingAmount } = settlePayments(payments, total, !!debtor);
 
       await tx.stay.update({
         where: { id: stay.id },
@@ -184,14 +193,22 @@ export async function checkoutAction(_: ActionState, form: FormData): Promise<Ac
           closedById: user.id,
         },
       });
-      if (finalPayments.length) {
-        await tx.payment.createMany({
-          data: finalPayments.map((p) => ({ ...p, stayId: stay.id, cashSessionId: cash.id })),
+      if (final.length) {
+        await tx.payment.createMany({ data: final.map((p) => ({ ...p, stayId: stay.id, cashSessionId: cash.id })) });
+      }
+      if (pendingAmount > 0 && debtor) {
+        await tx.pending.create({
+          data: { ...debtor, description: `Suíte ${stay.suite.number} — check-out`, amount: pendingAmount, stayId: stay.id, createdById: user.id },
         });
       }
       await tx.suite.update({ where: { id: stay.suiteId }, data: { status: "LIMPEZA" } });
       await tx.cleaningTask.create({ data: { suiteId: stay.suiteId, stayId: stay.id } });
+      return { suite: stay.suite.number, total, pendingAmount };
     });
+    await audit(
+      user.id,
+      `Check-out da suíte ${summary.suite} por ${user.name}: ${formatMoney(summary.total)}${summary.pendingAmount ? ` (${formatMoney(summary.pendingAmount)} pendente)` : ""}`,
+    );
     return "Check-out concluído.";
   });
   if (res?.ok) redirect("/painel?checkout=ok");
@@ -218,5 +235,6 @@ export async function cancelStayAction(form: FormData) {
     await tx.suite.update({ where: { id: stay.suiteId }, data: { status: "LIMPEZA" } });
     await tx.cleaningTask.create({ data: { suiteId: stay.suiteId, stayId } });
   });
+  await audit(user.id, `Locação cancelada por ${user.name}: ${reason}`, true);
   redirect("/painel");
 }

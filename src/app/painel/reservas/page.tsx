@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { modeLabel, reservationStatusLabel, reservationStatusStyle, sourceLabel } from "@/lib/labels";
 import { formatDateTime, startOfLocalDay } from "@/lib/time";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { Badge, Empty, PageHeader, Table, Td } from "@/components/ui";
+import { ActionButton, Badge, Empty, PageHeader, Table, Td } from "@/components/ui";
 import { setReservationStatusAction } from "@/actions/reservations";
 import { NewReservation, ReservationCheckIn } from "./reservation-forms";
 
@@ -82,20 +82,29 @@ export default async function ReservationsPage({ searchParams }: { searchParams:
                         reservation={{ id: r.id, code: r.code, mode: r.mode, name: r.customerName }}
                         suites={freeSuites.filter((s) => s.categoryId === r.categoryId).map((s) => ({ id: s.id, number: s.number, status: s.status }))}
                       />
-                      <form action={setReservationStatusAction} className="flex gap-1">
-                        <input type="hidden" name="id" value={r.id} />
-                        {r.status === "PENDENTE" && (
-                          <button name="status" value="CONFIRMADA" className="rounded-lg px-2 py-1 text-xs text-sky-300 hover:bg-surface-2">
-                            Confirmar
-                          </button>
-                        )}
-                        <button name="status" value="NO_SHOW" className="rounded-lg px-2 py-1 text-xs text-muted hover:bg-surface-2">
-                          Não veio
-                        </button>
-                        <button name="status" value="CANCELADA" className="rounded-lg px-2 py-1 text-xs text-rose-400 hover:bg-surface-2">
-                          Cancelar
-                        </button>
-                      </form>
+                      {r.status === "PENDENTE" && (
+                        <ActionButton
+                          action={setReservationStatusAction}
+                          fields={{ id: r.id, status: "CONFIRMADA" }}
+                          className="rounded-lg px-2 py-1 text-xs text-sky-300 hover:bg-surface-2"
+                        >
+                          Confirmar
+                        </ActionButton>
+                      )}
+                      <ActionButton
+                        action={setReservationStatusAction}
+                        fields={{ id: r.id, status: "NO_SHOW" }}
+                        className="rounded-lg px-2 py-1 text-xs text-muted hover:bg-surface-2"
+                      >
+                        Não veio
+                      </ActionButton>
+                      <ActionButton
+                        action={setReservationStatusAction}
+                        fields={{ id: r.id, status: "CANCELADA" }}
+                        className="rounded-lg px-2 py-1 text-xs text-rose-400 hover:bg-surface-2"
+                      >
+                        Cancelar
+                      </ActionButton>
                     </div>
                   )}
                 </Td>

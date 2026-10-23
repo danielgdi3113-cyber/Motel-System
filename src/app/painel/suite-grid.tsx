@@ -9,7 +9,7 @@ import { setSuiteStatusAction } from "@/actions/suites";
 import { useNow } from "@/components/auto-refresh";
 import { ActionForm, Submit } from "@/components/form";
 import { Modal } from "@/components/modal";
-import { Button, Input, Textarea, cn } from "@/components/ui";
+import { ActionButton, Input, Textarea, cn } from "@/components/ui";
 import { cleaningStatusLabel, modeLabel, suiteStatusDot, suiteStatusLabel, suiteStatusStyle } from "@/lib/labels";
 import { formatMoney } from "@/lib/money";
 import { calculateStayPrice } from "@/lib/pricing";
@@ -44,9 +44,20 @@ type Upcoming = { id: string; code: string; name: string; categoryId: string; mo
 
 const filters: (SuiteStatus | "TODAS")[] = ["TODAS", "LIVRE", "OCUPADA", "LIMPEZA", "RESERVADA", "MANUTENCAO"];
 
-export function SuiteGrid({ suites, tolerance, upcoming }: { suites: SuiteCard[]; tolerance: number; upcoming: Upcoming[] }) {
+export function SuiteGrid({
+  suites,
+  tolerance,
+  upcoming,
+  serverNow,
+}: {
+  suites: SuiteCard[];
+  tolerance: number;
+  upcoming: Upcoming[];
+  /** Horário do servidor ao gerar a página (mantém o HTML idêntico na hidratação). */
+  serverNow: number;
+}) {
   const [filter, setFilter] = useState<(typeof filters)[number]>("TODAS");
-  const now = useNow();
+  const now = useNow(serverNow);
   const shown = filter === "TODAS" ? suites : suites.filter((s) => s.status === filter);
   const groups = useMemo(() => {
     const map = new Map<string, SuiteCard[]>();
@@ -155,6 +166,8 @@ function SuiteTile({ suite, now, tolerance }: { suite: SuiteCard; now: number; t
   if (suite.status === "LIVRE" || suite.status === "RESERVADA") {
     return (
       <Modal
+      // Muda de status → recria a janela (fecha a que estava aberta)
+      key={suite.status}
         title={`Check-in · Suíte ${suite.number}`}
         trigger={(open) => (
           <button onClick={open} className={cn(base, suiteStatusStyle[suite.status], "hover:brightness-125")}>
@@ -183,6 +196,8 @@ function SuiteTile({ suite, now, tolerance }: { suite: SuiteCard; now: number; t
   // LIMPEZA / MANUTENCAO
   return (
     <Modal
+      // Muda de status → recria a janela (fecha a que estava aberta)
+      key={suite.status}
       title={`Suíte ${suite.number}`}
       trigger={(open) => (
         <button onClick={open} className={cn(base, suiteStatusStyle[suite.status], "hover:brightness-125")}>
@@ -212,17 +227,24 @@ function SuiteTile({ suite, now, tolerance }: { suite: SuiteCard; now: number; t
             Status atual: <strong className="text-white">{suiteStatusLabel[suite.status]}</strong>
             {suite.notes && suite.status === "MANUTENCAO" && <> — {suite.notes}</>}
           </p>
-          <form action={setSuiteStatusAction} className="flex flex-wrap gap-2">
-            <input type="hidden" name="suiteId" value={suite.id} />
-            <Button name="status" value="LIVRE" variant="success">
+          <div className="flex flex-wrap gap-2">
+            <ActionButton
+              action={setSuiteStatusAction}
+              fields={{ suiteId: suite.id, status: "LIVRE" }}
+              className="h-10 rounded-xl bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-500"
+            >
               Liberar suíte
-            </Button>
+            </ActionButton>
             {suite.status !== "MANUTENCAO" && (
-              <Button name="status" value="MANUTENCAO" variant="secondary">
+              <ActionButton
+                action={setSuiteStatusAction}
+                fields={{ suiteId: suite.id, status: "MANUTENCAO" }}
+                className="h-10 rounded-xl border border-line bg-surface-2 px-4 text-sm hover:border-zinc-500"
+              >
                 Enviar para manutenção
-              </Button>
+              </ActionButton>
             )}
-          </form>
+          </div>
         </div>
       )}
     </Modal>
@@ -247,6 +269,7 @@ function Header({ suite }: { suite: SuiteCard }) {
 function CheckInForm({ suite, close }: { suite: SuiteCard; close: () => void }) {
   const [mode, setMode] = useState<StayMode>("PERIODO");
   return (
+    <>
     <ActionForm action={checkInAction} onSuccess={close}>
       <input type="hidden" name="suiteId" value={suite.id} />
       <input type="hidden" name="mode" value={mode} />
@@ -279,22 +302,23 @@ function CheckInForm({ suite, close }: { suite: SuiteCard; close: () => void }) 
       <Submit className="w-full" size="lg" disabled={suite.status === "RESERVADA"}>
         <LogIn className="size-4" /> Confirmar entrada
       </Submit>
-      <div className="flex justify-between gap-2 border-t border-line pt-3">
-        {suite.status === "LIVRE" ? (
-          <>
-            <Button type="submit" formAction={setSuiteStatusAction} name="status" value="RESERVADA" variant="ghost" size="sm">
-              Bloquear p/ reserva
-            </Button>
-            <Button type="submit" formAction={setSuiteStatusAction} name="status" value="MANUTENCAO" variant="ghost" size="sm">
-              <Wrench className="size-3" /> Manutenção
-            </Button>
-          </>
-        ) : (
-          <Button type="submit" formAction={setSuiteStatusAction} name="status" value="LIVRE" variant="secondary" size="sm">
-            Liberar suíte
-          </Button>
-        )}
-      </div>
     </ActionForm>
+    <div className="mt-4 flex justify-between gap-2 border-t border-line pt-3">
+      {suite.status === "LIVRE" ? (
+        <>
+          <ActionButton action={setSuiteStatusAction} fields={{ suiteId: suite.id, status: "RESERVADA" }} className="inline-flex h-8 items-center gap-1 rounded-xl px-3 text-sm text-muted transition hover:bg-surface-2 hover:text-white">
+            Bloquear p/ reserva
+          </ActionButton>
+          <ActionButton action={setSuiteStatusAction} fields={{ suiteId: suite.id, status: "MANUTENCAO" }} className="inline-flex h-8 items-center gap-1 rounded-xl px-3 text-sm text-muted transition hover:bg-surface-2 hover:text-white">
+            <Wrench className="size-3" /> Manutenção
+          </ActionButton>
+        </>
+      ) : (
+        <ActionButton action={setSuiteStatusAction} fields={{ suiteId: suite.id, status: "LIVRE" }} className="inline-flex h-8 items-center gap-1 rounded-xl px-3 text-sm text-muted transition hover:bg-surface-2 hover:text-white">
+          Liberar suíte
+        </ActionButton>
+      )}
+    </div>
+    </>
   );
 }

@@ -4,32 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import type { Role } from "@prisma/client";
-import {
-  BarChart3,
-  BedDouble,
-  CalendarClock,
-  LayoutGrid,
-  LogOut,
-  Menu,
-  Package,
-  Settings,
-  Sparkles,
-  Wallet,
-  X,
-} from "lucide-react";
+import * as Icons from "lucide-react";
+import { LogOut, Menu, Repeat, X } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
+import { NAV } from "@/lib/permissions";
 import { cn } from "./ui";
-
-const items: { href: string; label: string; icon: typeof LayoutGrid; roles: Role[] }[] = [
-  { href: "/painel", label: "Mapa de suítes", icon: LayoutGrid, roles: ["ADMIN", "RECEPCAO"] },
-  { href: "/painel/reservas", label: "Reservas", icon: CalendarClock, roles: ["ADMIN", "RECEPCAO"] },
-  { href: "/painel/limpeza", label: "Limpeza", icon: Sparkles, roles: ["ADMIN", "RECEPCAO", "CAMAREIRA"] },
-  { href: "/painel/caixa", label: "Caixa", icon: Wallet, roles: ["ADMIN", "RECEPCAO"] },
-  { href: "/painel/produtos", label: "Produtos e estoque", icon: Package, roles: ["ADMIN", "RECEPCAO"] },
-  { href: "/painel/relatorios", label: "Relatórios", icon: BarChart3, roles: ["ADMIN"] },
-  { href: "/painel/suites", label: "Suítes e preços", icon: BedDouble, roles: ["ADMIN"] },
-  { href: "/painel/configuracoes", label: "Configurações", icon: Settings, roles: ["ADMIN"] },
-];
 
 export function Nav({
   role,
@@ -48,30 +27,42 @@ export function Nav({
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const visible = items.filter((i) => i.roles.includes(role));
+  const sections = NAV.map((s) => ({ ...s, items: s.items.filter((i) => i.roles.includes(role)) })).filter((s) => s.items.length);
+  const allHrefs = sections.flatMap((s) => s.items.map((i) => i.href));
+  // Destaca o item mais específico que casa com a rota atual
+  const activeHref =
+    pathname.startsWith("/painel/locacoes")
+      ? "/painel"
+      : allHrefs.filter((h) => (h === "/painel" ? pathname === h : pathname === h || pathname.startsWith(h + "/"))).sort((a, b) => b.length - a.length)[0];
 
   const links = (
-    <nav className="flex flex-1 flex-col gap-1">
-      {visible.map(({ href, label, icon: Icon }) => {
-        const active = href === "/painel" ? pathname === href || pathname.startsWith("/painel/locacoes") : pathname.startsWith(href);
-        return (
-          <Link
-            key={href}
-            href={href}
-            onClick={() => setOpen(false)}
-            className={cn(
-              "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
-              active ? "bg-surface-2 text-white" : "text-muted hover:bg-surface-2/60 hover:text-white",
-            )}
-          >
-            <Icon className={cn("size-4", active && "text-accent")} />
-            <span className="flex-1">{label}</span>
-            {badges[href] ? (
-              <span className="rounded-full bg-accent/20 px-2 text-xs font-semibold text-accent">{badges[href]}</span>
-            ) : null}
-          </Link>
-        );
-      })}
+    <nav className="-mx-1 flex-1 space-y-4 overflow-y-auto px-1">
+      {sections.map((section) => (
+        <div key={section.title}>
+          <div className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">{section.title}</div>
+          {section.items.map(({ href, label, icon }) => {
+            const Icon = (Icons as unknown as Record<string, Icons.LucideIcon>)[icon] ?? Icons.Circle;
+            const active = href === activeHref;
+            return (
+              <Link
+                key={href}
+                href={href}
+                onClick={() => setOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition",
+                  active ? "bg-surface-2 text-white" : "text-muted hover:bg-surface-2/60 hover:text-white",
+                )}
+              >
+                <Icon className={cn("size-4", active && "text-accent")} />
+                <span className="flex-1">{label}</span>
+                {badges[href] ? (
+                  <span className="rounded-full bg-accent/20 px-2 text-xs font-semibold text-accent">{badges[href]}</span>
+                ) : null}
+              </Link>
+            );
+          })}
+        </div>
+      ))}
     </nav>
   );
 
@@ -92,6 +83,11 @@ export function Nav({
           <div className="text-xs text-muted">{roleName}</div>
         </div>
         <form action={logoutAction}>
+          <button className="rounded-lg p-2 text-muted hover:bg-surface-2 hover:text-white" aria-label="Trocar de usuário" title="Trocar de usuário">
+            <Repeat className="size-4" />
+          </button>
+        </form>
+        <form action={logoutAction}>
           <button className="rounded-lg p-2 text-muted hover:bg-surface-2 hover:text-white" aria-label="Sair" title="Sair">
             <LogOut className="size-4" />
           </button>
@@ -101,7 +97,7 @@ export function Nav({
   );
 
   const brand = (
-    <Link href="/painel" className="mb-6 flex items-center gap-3 px-3">
+    <Link href={role === "CAMAREIRA" ? "/painel/limpeza" : "/painel"} className="mb-5 flex items-center gap-3 px-3">
       <div className="grid size-9 place-items-center rounded-xl bg-gradient-accent font-bold">{motelName.charAt(0)}</div>
       <span className="font-semibold">{motelName}</span>
     </Link>

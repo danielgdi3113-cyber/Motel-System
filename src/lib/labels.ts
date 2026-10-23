@@ -1,4 +1,11 @@
 import type {
+  CashMovementType,
+  EquipmentStatus,
+  OrderStatus,
+  PendingStatus,
+  Priority,
+  TicketStatus,
+  WaitlistStatus,
   CleaningStatus,
   PaymentMethod,
   ReservationSource,
@@ -70,4 +77,53 @@ export const cleaningStatusLabel: Record<CleaningStatus, string> = {
   PENDENTE: "Aguardando",
   EM_ANDAMENTO: "Em andamento",
   CONCLUIDA: "Concluída",
+};
+
+export const cashMovementLabel: Record<CashMovementType, string> = {
+  SANGRIA: "Sangria",
+  SUPRIMENTO: "Suprimento",
+  PAGAMENTO_FORNECEDOR: "Pag. fornecedor",
+  ADIANTAMENTO_SALARIAL: "Adiantamento",
+};
+
+export const orderStatusLabel: Record<OrderStatus, string> = {
+  PENDENTE: "Novo",
+  PREPARANDO: "Preparando",
+  ENTREGUE: "Entregue",
+  CANCELADO: "Cancelado",
+};
+
+export const priorityLabel: Record<Priority, string> = { BAIXA: "Baixa", MEDIA: "Média", ALTA: "Alta" };
+export const priorityStyle: Record<Priority, string> = {
+  BAIXA: "bg-zinc-500/15 text-zinc-300",
+  MEDIA: "bg-amber-500/15 text-amber-300",
+  ALTA: "bg-rose-500/15 text-rose-300",
+};
+
+export const ticketStatusLabel: Record<TicketStatus, string> = {
+  ABERTA: "Aberta",
+  EM_ANDAMENTO: "Em andamento",
+  CONCLUIDA: "Concluída",
+  CANCELADA: "Cancelada",
+};
+
+export const equipmentStatusLabel: Record<EquipmentStatus, string> = {
+  OK: "Funcionando",
+  DEFEITO: "Com defeito",
+  EM_MANUTENCAO: "Em manutenção",
+  BAIXADO: "Baixado",
+};
+export const equipmentStatusStyle: Record<EquipmentStatus, string> = {
+  OK: "bg-emerald-500/15 text-emerald-300",
+  DEFEITO: "bg-rose-500/15 text-rose-300",
+  EM_MANUTENCAO: "bg-amber-500/15 text-amber-300",
+  BAIXADO: "bg-zinc-500/15 text-zinc-400",
+};
+
+export const pendingStatusLabel: Record<PendingStatus, string> = { ABERTA: "Em aberto", QUITADA: "Quitada", CANCELADA: "Cancelada" };
+
+export const waitlistStatusLabel: Record<WaitlistStatus, string> = {
+  AGUARDANDO: "Aguardando",
+  ATENDIDO: "Atendido",
+  DESISTIU: "Desistiu",
 };

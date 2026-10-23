@@ -46,7 +46,7 @@ export function MovementForm({ type }: { type: "SANGRIA" | "SUPRIMENTO" }) {
   );
 }
 
-export function CloseCash({ expected }: { expected: number }) {
+export function CloseCash({ expected }: { expected: number | null }) {
   return (
     <Modal
       title="Fechar caixa"
@@ -59,7 +59,12 @@ export function CloseCash({ expected }: { expected: number }) {
       {() => (
         <ActionForm action={closeCashAction}>
           <p className="text-sm text-muted">
-            Conte o dinheiro da gaveta. O sistema espera <strong className="text-white">{formatMoney(expected)}</strong>.
+            Conte o dinheiro da gaveta e informe o valor.
+            {expected !== null && (
+              <>
+                {" "}O sistema espera <strong className="text-white">{formatMoney(expected)}</strong>.
+              </>
+            )}
           </p>
           <Input label="Dinheiro contado" name="declaredAmount" inputMode="decimal" placeholder="0,00" required />
           <Textarea label="Observações" name="notes" />
