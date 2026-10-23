@@ -35,7 +35,16 @@ Sistema web completo para gestão de motéis: mapa de suítes em tempo real, che
 
 Valores monetários são armazenados em centavos (inteiros) e os horários seguem o fuso `America/Sao_Paulo` (variável `MOTEL_TIMEZONE`).
 
-## Como rodar
+## Como rodar no Windows (jeito fácil)
+
+1. Instale o **Node.js LTS**: https://nodejs.org
+2. Instale o **PostgreSQL**: https://www.postgresql.org/download/windows/ — anote a senha que você criar.
+3. Baixe o código (botão verde **Code → Download ZIP** no GitHub) e descompacte.
+4. Dê dois cliques em **`iniciar-windows.bat`** e digite a senha do PostgreSQL quando pedir.
+
+O navegador abre em http://localhost:3000. Para desligar, feche a janela preta.
+
+## Como rodar (Docker / Linux / Mac)
 
 Pré-requisitos: Node.js 20+ e Docker (ou um PostgreSQL próprio).
 
