@@ -73,7 +73,16 @@ Valores monetários são armazenados em centavos (inteiros) e os horários segue
 
 O navegador abre em http://localhost:3000. Para desligar, feche a janela preta.
 
-## Como rodar (Docker / Linux / Mac)
+## Como rodar no Mac (jeito fácil)
+
+1. Instale o **Node.js LTS**: https://nodejs.org
+2. Instale o **Postgres.app**: https://postgresapp.com — abra e clique em **Initialize/Start**.
+3. Baixe o código (**Code → Download ZIP**) e descompacte.
+4. Clique com o botão direito em **`iniciar-mac.command`** → **Abrir** (na primeira vez o macOS pede confirmação).
+
+O navegador abre em http://localhost:3000. Para desligar, feche a janela do Terminal.
+
+## Como rodar (Docker / Linux)
 
 Pré-requisitos: Node.js 20+ e Docker (ou um PostgreSQL próprio).
 
