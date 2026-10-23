@@ -20,6 +20,8 @@ echo.
 echo === 2/4 Instalando dependencias ^(a primeira vez leva alguns minutos^) ===
 call npm install --no-audit --no-fund
 if errorlevel 1 goto erro
+call npx prisma generate
+if errorlevel 1 goto erro
 
 echo.
 echo === 3/4 Preparando o banco de dados ===
