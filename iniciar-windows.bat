@@ -16,12 +16,10 @@ echo === 1/4 Configuracao ===
 node scripts\criar-env.mjs
 if errorlevel 1 goto erro
 
-if not exist node_modules (
-  echo.
-  echo === 2/4 Instalando dependencias ^(so na primeira vez, pode levar alguns minutos^) ===
-  call npm install
-  if errorlevel 1 goto erro
-)
+echo.
+echo === 2/4 Instalando dependencias ^(a primeira vez leva alguns minutos^) ===
+call npm install --no-audit --no-fund
+if errorlevel 1 goto erro
 
 echo.
 echo === 3/4 Preparando o banco de dados ===

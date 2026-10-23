@@ -1,10 +1,11 @@
-import { PrismaClient, type PaymentMethod, type StayMode } from "@prisma/client";
+import type { PaymentMethod, StayMode } from "@prisma/client";
+import { createPrismaClient } from "../src/lib/db";
 import bcrypt from "bcryptjs";
 import { calculateStayPrice } from "../src/lib/pricing";
 import { DEFAULT_SETTINGS } from "../src/lib/settings";
 import { startOfLocalDay } from "../src/lib/time";
 
-const db = new PrismaClient();
+const db = createPrismaClient();
 const HOUR = 3_600_000;
 
 // Gerador determinístico para dados de demonstração reproduzíveis

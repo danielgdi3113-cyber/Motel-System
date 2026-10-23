@@ -1,7 +1,10 @@
 // Valores monetários são armazenados em centavos (Int).
 
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
+  // Sem engine nativa (.dll/.so): usa o driver "pg" em JavaScript. Evita
+  // problemas de antivírus/Visual C++ no Windows.
+  engineType = "client"
 }
 
 datasource db {
