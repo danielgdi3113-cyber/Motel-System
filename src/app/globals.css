@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #09080d;
+  --color-surface: #121019;
+  --color-surface-2: #1a1724;
+  --color-line: #2a2638;
+  --color-muted: #9a94ad;
+  --color-accent: #e14b8a;
+  --color-accent-2: #8b5cf6;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-bg);
+  color: #ece9f5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.text-gradient {
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.bg-gradient-accent {
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-2));
+}
+
+.glow {
+  box-shadow: 0 0 0 1px rgb(225 75 138 / 0.25), 0 10px 40px -10px rgb(225 75 138 / 0.35);
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.8);
+}
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 0.65);
+  backdrop-filter: blur(4px);
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgb(244 63 94 / 0.45); }
+  70% { box-shadow: 0 0 0 10px rgb(244 63 94 / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(244 63 94 / 0); }
+}
+.pulse-ring { animation: pulse-ring 2s infinite; }

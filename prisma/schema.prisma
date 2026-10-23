@@ -1,0 +1,298 @@
+// Valores monetários são armazenados em centavos (Int).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  RECEPCAO
+  CAMAREIRA
+}
+
+enum SuiteStatus {
+  LIVRE
+  OCUPADA
+  LIMPEZA
+  MANUTENCAO
+  RESERVADA
+}
+
+enum StayMode {
+  PERIODO
+  PERNOITE
+}
+
+enum StayStatus {
+  ABERTA
+  FECHADA
+  CANCELADA
+}
+
+enum PaymentMethod {
+  DINHEIRO
+  PIX
+  DEBITO
+  CREDITO
+}
+
+enum CashSessionStatus {
+  ABERTO
+  FECHADO
+}
+
+enum CashMovementType {
+  SANGRIA
+  SUPRIMENTO
+}
+
+enum StockMovementType {
+  ENTRADA
+  VENDA
+  AJUSTE
+  ESTORNO
+}
+
+enum ReservationStatus {
+  PENDENTE
+  CONFIRMADA
+  CONCLUIDA
+  CANCELADA
+  NO_SHOW
+}
+
+enum ReservationSource {
+  SITE
+  WHATSAPP
+  TELEFONE
+  BALCAO
+}
+
+enum CleaningStatus {
+  PENDENTE
+  EM_ANDAMENTO
+  CONCLUIDA
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  staysOpened    Stay[]          @relation("StayOpenedBy")
+  staysClosed    Stay[]          @relation("StayClosedBy")
+  cashOpened     CashSession[]   @relation("CashOpenedBy")
+  cashClosed     CashSession[]   @relation("CashClosedBy")
+  cleaningTasks  CleaningTask[]
+  consumptions   Consumption[]
+  stockMovements StockMovement[]
+  cashMovements  CashMovement[]
+}
+
+model SuiteCategory {
+  id                String  @id @default(cuid())
+  name              String  @unique
+  description       String  @default("")
+  amenities         String[]
+  periodHours       Int     @default(2)
+  periodPrice       Int
+  extraHourPrice    Int
+  overnightPrice    Int
+  // Pernoite: entrada a partir de overnightStartHour, saída até overnightEndHour (dia seguinte)
+  overnightStartHour Int    @default(20)
+  overnightEndHour   Int    @default(12)
+  active            Boolean @default(true)
+  sortOrder         Int     @default(0)
+
+  suites       Suite[]
+  reservations Reservation[]
+}
+
+model Suite {
+  id         String      @id @default(cuid())
+  number     String      @unique
+  categoryId String
+  category   SuiteCategory @relation(fields: [categoryId], references: [id])
+  status     SuiteStatus @default(LIVRE)
+  notes      String      @default("")
+  active     Boolean     @default(true)
+  updatedAt  DateTime    @updatedAt
+
+  stays         Stay[]
+  cleaningTasks CleaningTask[]
+  reservations  Reservation[]
+}
+
+model Stay {
+  id         String     @id @default(cuid())
+  suiteId    String
+  suite      Suite      @relation(fields: [suiteId], references: [id])
+  mode       StayMode
+  status     StayStatus @default(ABERTA)
+  plate      String     @default("")
+  guests     Int        @default(2)
+  checkIn    DateTime   @default(now())
+  checkOut   DateTime?
+
+  // Preços congelados no momento do check-in
+  periodHours    Int
+  periodPrice    Int
+  extraHourPrice Int
+  overnightPrice Int
+  overnightEndHour Int
+
+  roomAmount        Int @default(0)
+  consumptionAmount Int @default(0)
+  discount          Int @default(0)
+  total             Int @default(0)
+  notes             String @default("")
+
+  openedById String
+  openedBy   User    @relation("StayOpenedBy", fields: [openedById], references: [id])
+  closedById String?
+  closedBy   User?   @relation("StayClosedBy", fields: [closedById], references: [id])
+
+  reservationId String?      @unique
+  reservation   Reservation? @relation(fields: [reservationId], references: [id])
+
+  consumptions  Consumption[]
+  payments      Payment[]
+  cleaningTasks CleaningTask[]
+
+  @@index([status])
+  @@index([checkIn])
+}
+
+model Product {
+  id       String  @id @default(cuid())
+  name     String  @unique
+  category String  @default("Geral")
+  price    Int
+  cost     Int     @default(0)
+  stock    Int     @default(0)
+  minStock Int     @default(0)
+  active   Boolean @default(true)
+
+  consumptions   Consumption[]
+  stockMovements StockMovement[]
+}
+
+model Consumption {
+  id          String   @id @default(cuid())
+  stayId      String
+  stay        Stay     @relation(fields: [stayId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  quantity    Int
+  unitPrice   Int
+  createdAt   DateTime @default(now())
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+}
+
+model StockMovement {
+  id        String            @id @default(cuid())
+  productId String
+  product   Product           @relation(fields: [productId], references: [id])
+  type      StockMovementType
+  quantity  Int // positivo = entrada, negativo = saída
+  reason    String            @default("")
+  createdAt DateTime          @default(now())
+  userId    String
+  user      User              @relation(fields: [userId], references: [id])
+}
+
+model CashSession {
+  id             String            @id @default(cuid())
+  status         CashSessionStatus @default(ABERTO)
+  openedAt       DateTime          @default(now())
+  closedAt       DateTime?
+  openingAmount  Int
+  declaredAmount Int?
+  expectedAmount Int?
+  notes          String            @default("")
+  openedById     String
+  openedBy       User              @relation("CashOpenedBy", fields: [openedById], references: [id])
+  closedById     String?
+  closedBy       User?             @relation("CashClosedBy", fields: [closedById], references: [id])
+
+  payments  Payment[]
+  movements CashMovement[]
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  stayId        String?
+  stay          Stay?         @relation(fields: [stayId], references: [id])
+  cashSessionId String
+  cashSession   CashSession   @relation(fields: [cashSessionId], references: [id])
+  method        PaymentMethod
+  amount        Int
+  createdAt     DateTime      @default(now())
+
+  @@index([createdAt])
+}
+
+model CashMovement {
+  id            String           @id @default(cuid())
+  cashSessionId String
+  cashSession   CashSession      @relation(fields: [cashSessionId], references: [id])
+  type          CashMovementType
+  amount        Int
+  description   String           @default("")
+  createdAt     DateTime         @default(now())
+  userId        String
+  user          User             @relation(fields: [userId], references: [id])
+}
+
+model Reservation {
+  id           String            @id @default(cuid())
+  code         String            @unique
+  categoryId   String
+  category     SuiteCategory     @relation(fields: [categoryId], references: [id])
+  suiteId      String?
+  suite        Suite?            @relation(fields: [suiteId], references: [id])
+  customerName String
+  phone        String
+  scheduledAt  DateTime
+  mode         StayMode
+  status       ReservationStatus @default(PENDENTE)
+  source       ReservationSource @default(SITE)
+  notes        String            @default("")
+  createdAt    DateTime          @default(now())
+
+  stay Stay?
+
+  @@index([scheduledAt])
+}
+
+model CleaningTask {
+  id           String         @id @default(cuid())
+  suiteId      String
+  suite        Suite          @relation(fields: [suiteId], references: [id])
+  stayId       String?
+  stay         Stay?          @relation(fields: [stayId], references: [id])
+  status       CleaningStatus @default(PENDENTE)
+  assignedToId String?
+  assignedTo   User?          @relation(fields: [assignedToId], references: [id])
+  notes        String         @default("")
+  createdAt    DateTime       @default(now())
+  startedAt    DateTime?
+  finishedAt   DateTime?
+
+  @@index([status])
+}
+
+model Setting {
+  key   String @id
+  value String
+}
