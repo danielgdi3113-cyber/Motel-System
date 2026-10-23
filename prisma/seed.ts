@@ -1,6 +1,7 @@
 import type { PaymentMethod, StayMode } from "@prisma/client";
 import { createPrismaClient } from "../src/lib/db";
 import bcrypt from "bcryptjs";
+import { randomBytes } from "node:crypto";
 import { calculateStayPrice } from "../src/lib/pricing";
 import { DEFAULT_SETTINGS } from "../src/lib/settings";
 import { startOfLocalDay } from "../src/lib/time";
@@ -52,14 +53,19 @@ async function main() {
   await db.setting.createMany({ data: Object.entries(DEFAULT_SETTINGS).map(([key, value]) => ({ key, value })) });
 
   const hash = (p: string) => bcrypt.hash(p, 10);
+  // Online (ADMIN_PASSWORD definido): nada de senhas conhecidas. O admin usa a senha
+  // escolhida e os funcionários de exemplo ganham senhas aleatórias (redefina em Funcionários).
+  const online = !!process.env.ADMIN_PASSWORD;
+  const pw = (demo: string) => (online ? randomBytes(18).toString("base64url") : demo);
+  const adminPassword = process.env.ADMIN_PASSWORD || "admin123";
   const admin = await db.user.create({
-    data: { name: "Administrador", email: "admin@motel.com", passwordHash: await hash("admin123"), role: "ADMIN" },
+    data: { name: "Administrador", email: "admin@motel.com", passwordHash: await hash(adminPassword), role: "ADMIN" },
   });
   const recep = await db.user.create({
-    data: { name: "Carla Recepção", email: "recepcao@motel.com", passwordHash: await hash("recepcao123"), role: "RECEPCAO" },
+    data: { name: "Carla Recepção", email: "recepcao@motel.com", passwordHash: await hash(pw("recepcao123")), role: "RECEPCAO" },
   });
   const maid = await db.user.create({
-    data: { name: "Joana Camareira", email: "camareira@motel.com", passwordHash: await hash("camareira123"), role: "CAMAREIRA" },
+    data: { name: "Joana Camareira", email: "camareira@motel.com", passwordHash: await hash(pw("camareira123")), role: "CAMAREIRA" },
   });
 
   const categories = await Promise.all(
@@ -137,7 +143,7 @@ async function main() {
   const methods: PaymentMethod[] = ["PIX", "PIX", "PIX", "CREDITO", "CREDITO", "DEBITO", "DINHEIRO"];
   const sellable = products.filter((p) => p.category !== "Serviços");
 
-  const HISTORY_DAYS = 395;
+  const HISTORY_DAYS = Number(process.env.SEED_HISTORY_DAYS) || 395;
   for (let d = HISTORY_DAYS; d >= 1; d--) {
     const dayStart = startOfLocalDay(new Date(now - d * 24 * HOUR)).getTime();
     const cash = await db.cashSession.create({
@@ -326,9 +332,14 @@ async function main() {
   });
 
   console.log("Seed concluído.");
-  console.log("  admin@motel.com / admin123");
-  console.log("  recepcao@motel.com / recepcao123");
-  console.log("  camareira@motel.com / camareira123");
+  if (online) {
+    console.log("  admin@motel.com / (senha definida em ADMIN_PASSWORD)");
+    console.log("  Funcionários de exemplo com senha aleatória — redefina em Colaboradores → Funcionários.");
+  } else {
+    console.log("  admin@motel.com / admin123");
+    console.log("  recepcao@motel.com / recepcao123");
+    console.log("  camareira@motel.com / camareira123");
+  }
 }
 
 main()

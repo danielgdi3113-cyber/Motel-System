@@ -64,6 +64,18 @@ As regras ficam em `src/lib/permissions.ts` e são aplicadas no menu, no middlew
 
 Valores monetários são armazenados em centavos (inteiros) e os horários seguem o fuso `America/Sao_Paulo` (variável `MOTEL_TIMEZONE`).
 
+## Publicar na internet (Vercel + Neon, plano gratuito)
+
+1. Em https://vercel.com, entre com o GitHub → **Add New → Project** → importe este repositório.
+2. Em **Environment Variables**, adicione:
+   - `AUTH_SECRET` — uma string longa e aleatória (`openssl rand -base64 32`)
+   - `ADMIN_PASSWORD` — a senha do `admin@motel.com` (sem ela, a senha seria `admin123`)
+3. Clique em **Deploy** (o primeiro deploy falha por falta de banco — é esperado).
+4. No projeto, aba **Storage → Create Database → Neon** → **Connect**. Isso cria `DATABASE_URL`.
+5. Aba **Deployments** → **⋯ → Redeploy**. O build (`scripts/vercel-build.sh`) aplica as migrações e cria os dados de exemplo (120 dias de histórico; ajuste com `SEED_HISTORY_DAYS`).
+
+Na versão online os funcionários de exemplo recebem senhas aleatórias; defina as senhas em **Colaboradores → Funcionários**.
+
 ## Como rodar no Windows (jeito fácil)
 
 1. Instale o **Node.js LTS**: https://nodejs.org
