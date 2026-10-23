@@ -28,7 +28,7 @@ echo === 3/4 Preparando o banco de dados ===
 call npx prisma migrate deploy
 if errorlevel 1 goto erro_banco
 call npm run db:seed
-if errorlevel 1 goto erro_banco
+if errorlevel 1 goto erro_seed
 
 echo.
 echo === 4/4 Iniciando o sistema ===
@@ -45,6 +45,15 @@ echo.
 echo [ERRO] Nao consegui acessar o PostgreSQL.
 echo Verifique se ele esta instalado e se a senha esta correta.
 echo Para digitar a senha de novo, apague o arquivo .env desta pasta e rode este script outra vez.
+pause
+exit /b 1
+
+:erro_seed
+echo.
+echo [ERRO] O banco foi criado, mas os dados de exemplo nao puderam ser carregados.
+echo Se a mensagem acima falar de "query_engine" ou ".dll.node", instale o
+echo Microsoft Visual C++ Redistributable: https://aka.ms/vs/17/release/vc_redist.x64.exe
+echo reinicie o computador e rode este script de novo.
 pause
 exit /b 1
 
