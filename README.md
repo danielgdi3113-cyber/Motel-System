@@ -22,6 +22,13 @@ O menu segue as mesmas seções de sistemas de motel tradicionais (Operação, C
 | **Pendências** | Contas a receber (pendura), com vencimento e recebimento parcial. |
 | **Equipamentos** | Patrimônio por suíte (TV, ar, frigobar...) com situação e chamados abertos. |
 
+### Assistente IA (só administrador)
+Chat em **Relatórios → Assistente IA** que responde perguntas sobre o motel consultando o banco (somente leitura): relatórios de qualquer período, situação atual, locações por placa/suíte/data, estoque, pendências, clientes e histórico de ações da equipe.
+
+- **Relatório completo garantido:** os números do relatório são calculados pelo sistema (`src/lib/assistant/report.ts`), não pela IA — 11 seções (resumo e lucro, faturamento, locações, produtos, despesas, caixa, pendências, reservas, limpeza/manutenção, estoque, equipe), com comparação ao período anterior e botão **Imprimir / PDF**. A IA escreve a análise e os alertas.
+- Usa o **Claude Opus 5.5** (`claude-opus-5-5`) com fallback automático em caso de recusa. Requer uma chave da Anthropic: configure na própria tela do assistente ou pela variável `ANTHROPIC_API_KEY`. O uso é cobrado pela Anthropic por consulta.
+- Conversas ficam salvas por usuário; cada consulta fica registrada nas "Últimas ações".
+
 ### Caixa e relatórios
 | Módulo | O que faz |
 | --- | --- |
@@ -70,6 +77,7 @@ Valores monetários são armazenados em centavos (inteiros) e os horários segue
 2. Em **Environment Variables**, adicione:
    - `AUTH_SECRET` — uma string longa e aleatória (`openssl rand -base64 32`)
    - `ADMIN_PASSWORD` — a senha do `admin@motel.com` (sem ela, a senha seria `admin123`)
+   - `ANTHROPIC_API_KEY` — opcional, para o Assistente IA (também pode ser configurada pela tela do assistente)
 3. Clique em **Deploy** (o primeiro deploy falha por falta de banco — é esperado).
 4. No projeto, aba **Storage → Create Database → Neon** → **Connect**. Isso cria `DATABASE_URL`.
 5. Aba **Deployments** → **⋯ → Redeploy**. O build (`scripts/vercel-build.sh`) aplica as migrações e cria os dados de exemplo (120 dias de histórico; ajuste com `SEED_HISTORY_DAYS`).

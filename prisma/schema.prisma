@@ -152,6 +152,7 @@ model User {
   messages       InternalMessage[]   @relation("MessageAuthor")
   inbox          InternalMessage[]   @relation("MessageRecipient")
   auditLogs      AuditLog[]
+  assistantChats AssistantChat[]
 }
 
 model SuiteCategory {
@@ -559,4 +560,18 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+}
+
+/// Conversas com o assistente de IA (só administradores).
+model AssistantChat {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  // Histórico completo enviado à API (inclui consultas e resultados), só cresce
+  messages  Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, updatedAt])
 }

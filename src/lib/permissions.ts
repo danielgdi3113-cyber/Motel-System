@@ -37,6 +37,7 @@ export const NAV: NavSection[] = [
   {
     title: "Relatórios",
     items: [
+      { href: "/painel/assistente", label: "Assistente IA", icon: "Bot", roles: ADMIN },
       { href: "/painel/relatorios", label: "Dashboard", icon: "LayoutDashboard", roles: ADMIN },
       { href: "/painel/relatorios/faturamento", label: "Relatório de faturamento", icon: "BarChart3", roles: ADMIN },
       { href: "/painel/relatorios/movimentos", label: "Movimentos do caixa", icon: "ReceiptText", roles: ADMIN },

@@ -52,3 +52,16 @@ dialog::backdrop {
   100% { box-shadow: 0 0 0 0 rgb(244 63 94 / 0); }
 }
 .pulse-ring { animation: pulse-ring 2s infinite; }
+
+/* Impressão de relatórios do assistente: só a área marcada, em preto no branco */
+@media print {
+  body.printing * { visibility: hidden; }
+  body.printing .print-area, body.printing .print-area * { visibility: visible; }
+  body.printing .print-area { position: absolute; top: 0; left: 0; right: 0; margin: 0; border: 0; padding: 0; }
+  body.printing .print-area .overflow-x-auto { overflow: visible; }
+  body.printing .print-area tr, body.printing .print-area h2, body.printing .print-area h3 { break-inside: avoid; break-after: auto; }
+  body.printing .print-area h2, body.printing .print-area h3 { break-after: avoid; }
+  body.printing .print-area * { color: #000 !important; background: #fff !important; border-color: #ccc !important; box-shadow: none !important; }
+  body.printing .no-print { display: none !important; }
+  body.printing { background: #fff; }
+}

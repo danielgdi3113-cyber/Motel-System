@@ -11,7 +11,8 @@ export const DEFAULT_SETTINGS = {
 export type Settings = typeof DEFAULT_SETTINGS;
 
 export async function getSettings(): Promise<Settings> {
-  const rows = await db.setting.findMany();
+  // Só as chaves conhecidas: segredos guardados na mesma tabela nunca saem daqui
+  const rows = await db.setting.findMany({ where: { key: { in: Object.keys(DEFAULT_SETTINGS) } } });
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
   return { ...DEFAULT_SETTINGS, ...map } as Settings;
 }
